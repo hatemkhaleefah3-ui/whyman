@@ -54,7 +54,7 @@ export interface SignupPayload {
 }
 
 const configuredBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '');
-const API_BASE = configuredBase ?? 'https://whyman.workers.dev';
+const API_BASE = configuredBase ?? 'https://whyman.hatemkhaleefah3.workers.dev';
 const TOKEN_KEY = 'whyman_session_token';
 
 export class ApiError extends Error {

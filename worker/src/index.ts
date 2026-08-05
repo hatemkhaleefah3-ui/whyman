@@ -1,0 +1,18 @@
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+
+interface Env { DB: D1Database; FILES: R2Bucket; APP_ORIGIN: string }
+type Bindings={Bindings:Env};
+const app=new Hono<Bindings>();
+app.use('/api/*',cors({origin:(origin,c)=>origin===c.env.APP_ORIGIN?origin:c.env.APP_ORIGIN,allowMethods:['GET','POST','PATCH','DELETE','OPTIONS'],allowHeaders:['Content-Type','Authorization']}));
+app.onError((error,c)=>{console.error(JSON.stringify({level:'error',message:error.message,path:c.req.path}));return c.json({error:'Internal server error'},500)});
+app.get('/api/health',c=>c.json({ok:true,service:'whyman-api'}));
+app.get('/api/courses',async c=>{const institution=c.req.query('institution');const sql=institution?'SELECT * FROM courses WHERE visibility=? OR institution=? ORDER BY name':'SELECT * FROM courses ORDER BY name';const stmt=institution?c.env.DB.prepare(sql).bind('Public',institution):c.env.DB.prepare(sql);const {results}=await stmt.all();return c.json(results)});
+app.get('/api/courses/:id/subjects',async c=>{const {results}=await c.env.DB.prepare('SELECT * FROM subjects WHERE course_id=? ORDER BY name').bind(c.req.param('id')).all();return c.json(results)});
+app.get('/api/signup-requests',async c=>{const {results}=await c.env.DB.prepare('SELECT * FROM signup_requests ORDER BY created_at DESC').all();return c.json(results)});
+app.post('/api/signup-requests',async c=>{const data=await c.req.json<{name:string;role:string;institution?:string;stage?:string;email:string;phone:string;photoKey:string}>();if(!data.name||!data.role||!data.email||!data.phone||!data.photoKey)return c.json({error:'Missing required fields'},400);const id=crypto.randomUUID();const tier=data.institution?'Admin + Representative':'Admin';await c.env.DB.prepare('INSERT INTO signup_requests(id,name,role,institution,stage,email,phone,photo_key,status,approval_tier) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(id,data.name,data.role,data.institution??null,data.stage??null,data.email,data.phone,data.photoKey,'Pending',tier).run();return c.json({id,status:'Pending',approvalTier:tier},201)});
+app.patch('/api/signup-requests/:id',async c=>{const body=await c.req.json<{status:'Active'|'Rejected';reason?:string}>();if(!['Active','Rejected'].includes(body.status))return c.json({error:'Invalid status'},400);if(body.status==='Rejected'&&!body.reason)return c.json({error:'Rejection reason required'},400);let studentId:string|null=null,passkey:string|null=null;if(body.status==='Active'){const bytes=new Uint32Array(1);crypto.getRandomValues(bytes);passkey=String(bytes[0]%1_000_000).padStart(6,'0');studentId=`STU-${new Date().getUTCFullYear()}-${String(bytes[0]%100000).padStart(5,'0')}`;}await c.env.DB.prepare('UPDATE signup_requests SET status=?,rejection_reason=?,student_id=?,passkey_hash=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?').bind(body.status,body.reason??null,studentId,passkey?await sha256(passkey):null,c.req.param('id')).run();return c.json({status:body.status,studentId,passkey})});
+app.post('/api/uploads',async c=>{const contentType=c.req.header('content-type')||'application/octet-stream';const key=`uploads/${crypto.randomUUID()}`;await c.env.FILES.put(key,c.req.raw.body,{httpMetadata:{contentType}});return c.json({key},201)});
+app.get('/api/files/:key{.+}',async c=>{const object=await c.env.FILES.get(c.req.param('key'));if(!object)return c.json({error:'Not found'},404);const headers=new Headers();object.writeHttpMetadata(headers);headers.set('etag',object.httpEtag);return new Response(object.body,{headers})});
+async function sha256(value:string){const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+export default app;

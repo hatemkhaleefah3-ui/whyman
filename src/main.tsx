@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import {ProductionApp} from './ProductionApp';
+import {EmailOnlyApp} from './EmailOnlyApp';
 import './styles.css';
 import './redesign.css';
 import './mobile.css';
@@ -10,6 +10,6 @@ import './production-app.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ProductionApp />
+    <EmailOnlyApp />
   </React.StrictMode>,
 );

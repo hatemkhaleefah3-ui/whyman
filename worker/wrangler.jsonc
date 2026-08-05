@@ -7,7 +7,8 @@
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "vars": {
     "APP_ORIGIN": "http://localhost:5173",
-    "RESEND_FROM": "Whyman <onboarding@resend.dev>"
+    "RESEND_FROM": "Whyman <onboarding@resend.dev>",
+    "ADMIN_BOOTSTRAP_EMAIL": "hatemkhalifa101@gmail.com"
   },
   "d1_databases": [
     {
@@ -28,7 +29,8 @@
       "name": "whyman",
       "vars": {
         "APP_ORIGIN": "https://whyman.pages.dev",
-        "RESEND_FROM": "Whyman <onboarding@resend.dev>"
+        "RESEND_FROM": "Whyman <onboarding@resend.dev>",
+        "ADMIN_BOOTSTRAP_EMAIL": "hatemkhalifa101@gmail.com"
       },
       "d1_databases": [
         {

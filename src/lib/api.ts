@@ -60,27 +60,19 @@ const TOKEN_KEY = 'whyman_session_token';
 export class ApiError extends Error {
   readonly status: number;
   readonly details: unknown;
-
   constructor(message: string, status: number, details?: unknown) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.details = details;
+    super(message); this.name = 'ApiError'; this.status = status; this.details = details;
   }
 }
 
-function token(): string | null {
-  return window.localStorage.getItem(TOKEN_KEY);
-}
+function token(): string | null { return window.localStorage.getItem(TOKEN_KEY); }
+function saveToken(value: string) { window.localStorage.setItem(TOKEN_KEY, value); }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const sessionToken = token();
   if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
-  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-
+  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const response = await fetch(`${API_BASE}${path}`, {...init, headers});
   const contentType = response.headers.get('content-type') ?? '';
   const body = contentType.includes('application/json') ? await response.json() : await response.text();
@@ -95,70 +87,33 @@ export const api = {
   baseUrl: API_BASE,
   hasSession: () => Boolean(token()),
   clearSession: () => window.localStorage.removeItem(TOKEN_KEY),
-
   health: () => request<{ok: boolean; service: string}>('/api/health'),
-
   signIn: async (studentId: string, passkey: string) => {
-    const result = await request<{token: string; user: SessionUser}>('/api/auth/sign-in', {
-      method: 'POST',
-      body: JSON.stringify({studentId, passkey}),
-    });
-    window.localStorage.setItem(TOKEN_KEY, result.token);
-    return result.user;
+    const result = await request<{token: string; user: SessionUser}>('/api/auth/sign-in', {method: 'POST', body: JSON.stringify({studentId, passkey})});
+    saveToken(result.token); return result.user;
   },
-
-  signOut: async () => {
-    try {
-      await request('/api/auth/sign-out', {method: 'POST'});
-    } finally {
-      window.localStorage.removeItem(TOKEN_KEY);
-    }
-  },
-
-  me: () => request<{user: SessionUser}>('/api/auth/me'),
-  returnToAdmin: () => request<{token: string; user: SessionUser}>('/api/admin/return', {method: 'POST'}),
-  impersonate: (userId: string) => request<{token: string; user: SessionUser}>(`/api/admin/impersonate/${encodeURIComponent(userId)}`, {method: 'POST'}),
-
-  sendVerificationCode: (channel: 'email' | 'phone', destination: string) => request<{verificationId: string; expiresAt: string}>('/api/verifications/send', {
-    method: 'POST',
-    body: JSON.stringify({channel, destination}),
-  }),
-
-  verifyCode: (verificationId: string, code: string) => request<{verified: boolean}>('/api/verifications/verify', {
-    method: 'POST',
-    body: JSON.stringify({verificationId, code}),
-  }),
-
+  signOut: async () => { try { await request('/api/auth/sign-out', {method: 'POST'}); } finally { api.clearSession(); } },
+  me: () => request<{user: SessionUser; impersonating: boolean}>('/api/me'),
+  returnToAdmin: async () => { const result = await request<{token: string}>('/api/admin/return', {method: 'POST'}); saveToken(result.token); return result; },
+  impersonate: async (userId: string) => { const result = await request<{token: string}>(`/api/admin/impersonate/${encodeURIComponent(userId)}`, {method: 'POST'}); saveToken(result.token); return result; },
+  sendVerificationCode: (channel: 'email' | 'phone', destination: string) => request<{sent: boolean; developmentCode?: string}>('/api/verification/send', {method: 'POST', body: JSON.stringify({channel, destination})}),
+  verifyCode: (channel: 'email' | 'phone', destination: string, code: string) => request<{verified: boolean}>('/api/verification/verify', {method: 'POST', body: JSON.stringify({channel, destination, code})}),
   upload: async (file: File) => {
     const headers = new Headers({'Content-Type': file.type || 'application/octet-stream', 'X-File-Name': file.name});
-    const sessionToken = token();
-    if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
+    const sessionToken = token(); if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
     const response = await fetch(`${API_BASE}/api/uploads`, {method: 'POST', headers, body: file});
     const data = await response.json() as {key?: string; error?: string};
     if (!response.ok || !data.key) throw new ApiError(data.error ?? 'Upload failed', response.status, data);
     return data.key;
   },
-
-  createSignupRequest: (payload: SignupPayload) => request<{id: string; status: SignupStatus; approvalTier: string}>('/api/signup-requests', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  }),
-
-  signupRequests: () => request<SignupRequestRecord[]>('/api/signup-requests'),
-  representativeRequests: () => request<SignupRequestRecord[]>('/api/representative/signup-requests'),
-  reviewSignupRequest: (id: string, status: 'Active' | 'Rejected', reason?: string) => request<{status: SignupStatus; studentId?: string; passkey?: string}>(`/api/signup-requests/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({status, reason}),
-  }),
-
+  createSignupRequest: (payload: SignupPayload) => request<{id: string; status: SignupStatus; approvalTier: string}>('/api/signup-requests', {method: 'POST', body: JSON.stringify(payload)}),
+  signupRequests: () => request<SignupRequestRecord[]>('/api/admin/signup-requests'),
+  representativeRequests: () => request<SignupRequestRecord[]>('/api/admin/signup-requests'),
+  reviewSignupRequest: (id: string, decision: 'Accept' | 'Reject', reason?: string) => request<{status: string; studentId?: string; passkey?: string}>(`/api/admin/signup-requests/${encodeURIComponent(id)}`, {method: 'PATCH', body: JSON.stringify({decision, reason})}),
+  institutions: () => request<{id: string; name: string; type: string}[]>('/api/institutions'),
   courses: (institution?: string) => request<CourseRecord[]>(`/api/courses${institution ? `?institution=${encodeURIComponent(institution)}` : ''}`),
   course: (id: string) => request<Record<string, unknown>>(`/api/courses/${encodeURIComponent(id)}`),
-  subjects: (courseId: string) => request<Record<string, unknown>[]>(`/api/courses/${encodeURIComponent(courseId)}/subjects`),
-  setActiveCourse: (courseId: string) => request<{activeCourseId: string}>('/api/me/active-course', {
-    method: 'PATCH',
-    body: JSON.stringify({courseId}),
-  }),
-
+  subject: (id: string) => request<Record<string, unknown>>(`/api/subjects/${encodeURIComponent(id)}`),
+  setActiveCourse: (courseId: string) => request<{activeCourseId: string}>('/api/me/active-course', {method: 'PATCH', body: JSON.stringify({courseId})}),
   users: () => request<SessionUser[]>('/api/admin/users'),
-  auditLogs: () => request<Record<string, unknown>[]>('/api/admin/audit-logs'),
 };

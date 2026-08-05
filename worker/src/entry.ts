@@ -1,5 +1,6 @@
 import app from './index';
 import {ensureSchema} from './schema';
+import {tryBootstrapAdmin} from './adminBootstrap';
 
 type Env = {
   DB: D1Database;
@@ -7,6 +8,7 @@ type Env = {
   APP_ORIGIN: string;
   RESEND_API_KEY: string;
   RESEND_FROM: string;
+  ADMIN_BOOTSTRAP_EMAIL: string;
 };
 
 function allowedOrigin(origin: string | null, env: Env): string | null {
@@ -118,8 +120,14 @@ export default {
     await ensureSchema(env.DB);
     const url = new URL(request.url);
     if (request.method === 'POST' && url.pathname === '/api/verification/send') return sendVerification(request, env);
-    let forwarded = request;
-    if (request.method === 'POST' && url.pathname === '/api/signup-requests') forwarded = await prepareEmailOnlySignup(request, env);
-    return withCors(await app.fetch(forwarded, env, ctx), request, env);
+
+    if (request.method === 'POST' && url.pathname === '/api/signup-requests') {
+      const bootstrap = await tryBootstrapAdmin(request.clone(), env);
+      if (bootstrap) return withCors(bootstrap, request, env);
+      const forwarded = await prepareEmailOnlySignup(request, env);
+      return withCors(await app.fetch(forwarded, env, ctx), request, env);
+    }
+
+    return withCors(await app.fetch(request, env, ctx), request, env);
   },
 };

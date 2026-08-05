@@ -1,11 +1,14 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "whyman-api",
-  "main": "src/index.ts",
+  "main": "src/entry.ts",
   "compatibility_date": "2026-08-05",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
-  "vars": { "APP_ORIGIN": "http://localhost:5173" },
+  "vars": {
+    "APP_ORIGIN": "http://localhost:5173",
+    "RESEND_FROM": "Whyman <onboarding@resend.dev>"
+  },
   "d1_databases": [
     {
       "binding": "DB",
@@ -24,7 +27,8 @@
     "production": {
       "name": "whyman",
       "vars": {
-        "APP_ORIGIN": "https://whyman.pages.dev"
+        "APP_ORIGIN": "https://whyman.pages.dev",
+        "RESEND_FROM": "Whyman <onboarding@resend.dev>"
       },
       "d1_databases": [
         {

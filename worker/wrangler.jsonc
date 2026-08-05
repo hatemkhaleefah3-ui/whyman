@@ -6,7 +6,40 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "vars": { "APP_ORIGIN": "http://localhost:5173" },
-  "d1_databases": [{ "binding": "DB", "database_name": "whyman-db", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "migrations" }],
-  "r2_buckets": [{ "binding": "FILES", "bucket_name": "whyman-files" }],
-  "env": { "production": { "name": "whyman-api-production", "vars": { "APP_ORIGIN": "https://REPLACE_WITH_PAGES_DOMAIN.pages.dev" }, "d1_databases": [{ "binding": "DB", "database_name": "whyman-db", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "migrations" }], "r2_buckets": [{ "binding": "FILES", "bucket_name": "whyman-files" }] } }
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "whyman-db",
+      "database_id": "c79436f3-e445-4ce2-b41c-9782f63bf1b5",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "whyman-files"
+    }
+  ],
+  "env": {
+    "production": {
+      "name": "whyman",
+      "vars": {
+        "APP_ORIGIN": "https://whyman.pages.dev"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "whyman-db",
+          "database_id": "c79436f3-e445-4ce2-b41c-9782f63bf1b5",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "FILES",
+          "bucket_name": "whyman-files"
+        }
+      ]
+    }
+  }
 }

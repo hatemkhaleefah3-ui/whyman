@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "whyman-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-05",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "vars": { "APP_ORIGIN": "http://localhost:5173" },
+  "d1_databases": [{ "binding": "DB", "database_name": "whyman-db", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "whyman-files" }],
+  "env": { "production": { "name": "whyman-api-production", "vars": { "APP_ORIGIN": "https://REPLACE_WITH_PAGES_DOMAIN.pages.dev" }, "d1_databases": [{ "binding": "DB", "database_name": "whyman-db", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "migrations" }], "r2_buckets": [{ "binding": "FILES", "bucket_name": "whyman-files" }] } }
+}

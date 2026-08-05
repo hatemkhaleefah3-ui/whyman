@@ -1,4 +1,5 @@
 import app from './index';
+import {ensureSchema} from './schema';
 
 type Env = {
   DB: D1Database;
@@ -83,9 +84,7 @@ async function sendVerification(request: Request, env: Env): Promise<Response> {
   });
 
   if (!response.ok) {
-    const details = await response.text();
     await env.DB.prepare('DELETE FROM verification_codes WHERE id=?').bind(id).run();
-    console.error(JSON.stringify({level: 'error', event: 'resend.send_failed', status: response.status, details}));
     let message = 'Email could not be sent.';
     if (response.status === 401 || response.status === 403) message = 'The Resend API key or sender is not authorized.';
     if (response.status === 422) message = 'Resend rejected the recipient or sender. Use your Resend account email until a domain is verified.';
@@ -101,17 +100,12 @@ async function prepareEmailOnlySignup(request: Request, env: Env): Promise<Reque
     await env.DB.prepare("INSERT INTO verification_codes(id,channel,destination,code_hash,expires_at,verified_at) VALUES(?,'phone',?,'not-required',datetime('now','+1 day'),CURRENT_TIMESTAMP)")
       .bind(crypto.randomUUID(), phone).run();
   }
-  return new Request(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: JSON.stringify(body),
-  });
+  return new Request(request.url, {method: request.method,headers: request.headers,body: JSON.stringify(body)});
 }
 
 function withCors(response: Response, request: Request, env: Env): Response {
   const headers = new Headers(response.headers);
-  const gatewayHeaders = corsHeaders(request, env);
-  gatewayHeaders.forEach((value, key) => headers.set(key, value));
+  corsHeaders(request, env).forEach((value, key) => headers.set(key, value));
   return new Response(response.body, {status: response.status, statusText: response.statusText, headers});
 }
 
@@ -121,15 +115,11 @@ export default {
     if (origin && !allowedOrigin(origin, env)) return json({error: 'Origin not allowed'}, 403, env, request);
     if (request.method === 'OPTIONS') return new Response(null, {status: 204, headers: corsHeaders(request, env)});
 
+    await ensureSchema(env.DB);
     const url = new URL(request.url);
-    if (request.method === 'POST' && url.pathname === '/api/verification/send') {
-      return sendVerification(request, env);
-    }
+    if (request.method === 'POST' && url.pathname === '/api/verification/send') return sendVerification(request, env);
     let forwarded = request;
-    if (request.method === 'POST' && url.pathname === '/api/signup-requests') {
-      forwarded = await prepareEmailOnlySignup(request, env);
-    }
-    const response = await app.fetch(forwarded, env, ctx);
-    return withCors(response, request, env);
+    if (request.method === 'POST' && url.pathname === '/api/signup-requests') forwarded = await prepareEmailOnlySignup(request, env);
+    return withCors(await app.fetch(forwarded, env, ctx), request, env);
   },
 };

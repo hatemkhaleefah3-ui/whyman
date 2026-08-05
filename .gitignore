@@ -1,0 +1,6 @@
+node_modules
+dist
+.dev.vars
+.wrangler
+worker/worker-configuration.d.ts
+.DS_Store
